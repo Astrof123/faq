@@ -1,0 +1,6 @@
+tensorflow==2.13.0
+transformers==4.30.2
+numpy==1.23.5
+tensorflow-hub==0.13.0
+tensorflow-text==2.13.0
+torch==2.0.1
