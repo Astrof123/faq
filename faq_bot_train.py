@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 from transformers import pipeline
 from sklearn.metrics.pairwise import cosine_similarity
-
+import json
 pipe = pipeline("feature-extraction", model="DeepPavlov/rubert-base-cased")
 
 def load_data(filepath):
