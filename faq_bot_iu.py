@@ -2,6 +2,7 @@ import json
 import numpy as np
 import tensorflow as tf
 from transformers import pipeline
+from sklearn.metrics.pairwise import cosine_similarity
 
 print("Происходит загрузка приложения. Подождите немного...")
 
