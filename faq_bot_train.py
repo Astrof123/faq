@@ -1,17 +1,9 @@
-import os
-import json
 import numpy as np
 import tensorflow as tf
-from transformers import pipeline, AutoTokenizer, TFAutoModel
+from transformers import pipeline
+from sklearn.metrics.pairwise import cosine_similarity
 
-tokenizer = AutoTokenizer.from_pretrained("DeepPavlov/rubert-base-cased")
-model = TFAutoModel.from_pretrained("DeepPavlov/rubert-base-cased", from_pt=True)
-
-def get_embedding(text):
-    inputs = tokenizer(text, return_tensors="tf", padding=True, truncation=True, max_length=512)
-    outputs = model(**inputs)
-    return outputs.last_hidden_state[:, 0, :].numpy().mean(axis=0)
-
+pipe = pipeline("feature-extraction", model="DeepPavlov/rubert-base-cased")
 
 def load_data(filepath):
     try:
@@ -24,30 +16,24 @@ def load_data(filepath):
 
 questions, answers = load_data("university_qa.json")
 
-dataset = []
-for i in range(len(questions)):
-    q_emb = get_embedding(questions[i])
-    a_emb = get_embedding(answers[i])
-    dataset.append((q_emb, a_emb))
+question_embeddings = [np.mean(pipe(q)[0], axis=0) for q in questions]
+answer_embeddings = [np.mean(pipe(a)[0], axis=0) for a in answers]
 
-dataset = np.array(dataset)
+np.save("question_embeddings.npy", question_embeddings)
+np.save("answer_embeddings.npy", answer_embeddings)
 
-X, Y = [], []
-for i in range(len(dataset)):
-    for j in range(len(dataset)):
-        X.append(np.concatenate([dataset[i][0], dataset[j][1]]))
-        Y.append(1 if i == j else 0)
+def get_answer(question):
+    question_embedding = np.mean(pipe(question)[0], axis=0)
+    similarities = cosine_similarity([question_embedding], question_embeddings)[0]
+    best_match_index = np.argmax(similarities) 
 
-X = np.array(X)
-Y = np.array(Y)
+    similarity_threshold = 0.7
 
-model = tf.keras.Sequential()
-model.add(tf.keras.layers.InputLayer(input_shape=(X.shape[1],)))
-model.add(tf.keras.layers.Dense(256, activation='selu'))
-model.add(tf.keras.layers.Dense(1, activation='sigmoid'))
-es = tf.keras.callbacks.EarlyStopping(monitor='auc', mode='max', patience=10, restore_best_weights=True)
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3), loss='binary_crossentropy', metrics=[tf.keras.metrics.AUC(curve='pr', name='auc')])
+    if similarities[best_match_index] >= similarity_threshold:
+      return answers[best_match_index]
+    else:
+      return "Извините, я не знаю ответа на ваш вопрос."
 
-model.fit(X, Y, epochs=150, class_weight={0:1,1:63})
 
-model.save('FAQ.keras')
+# Пример
+print(get_answer("Как узнать результаты экзаменов?"))
